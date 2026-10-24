@@ -155,6 +155,29 @@ public class CalculatorPadViewPager extends ViewPager {
 
     private final GestureDetector mGestureDetector;
 
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        final boolean compact = "compact_cells".equals(getTag());
+        if (compact || "square_cells".equals(getTag())) {
+            // 4 x 5 grid of round keys: make the pad exactly tall enough for square cells.
+            final int width = MeasureSpec.getSize(widthMeasureSpec);
+            final int available = MeasureSpec.getSize(heightMeasureSpec);
+            final int gridPadding = Math.round(10 * getResources().getDisplayMetrics().density);
+            final int cell = (width - 2 * gridPadding) / 4;
+            int desired = cell * 5 + 2 * gridPadding;
+            if (compact) {
+                // Scientific keys are showing: flatten the keypad into pills.
+                desired = Math.min(desired, Math.round(
+                        (5 * 52 + 20) * getResources().getDisplayMetrics().density));
+            }
+            if (available > 0) {
+                desired = Math.min(desired, Math.round(available * 0.72f));
+            }
+            heightMeasureSpec = MeasureSpec.makeMeasureSpec(desired, MeasureSpec.EXACTLY);
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    }
+
     private int mClickedItemIndex = -1;
 
     public CalculatorPadViewPager(Context context) {
