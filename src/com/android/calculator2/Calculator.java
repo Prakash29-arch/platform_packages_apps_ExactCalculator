@@ -414,6 +414,38 @@ public class Calculator extends Activity
                 findViewById(R.id.op_sqr)
         };
 
+        // Header buttons of the iOS style layout: history and scientific keys on/off.
+        final View historyButton = findViewById(R.id.btn_history);
+        if (historyButton != null) {
+            historyButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showHistoryFragment();
+                }
+            });
+        }
+        final View sciButton = findViewById(R.id.btn_sci);
+        final View sciPad = findViewById(R.id.pad_advanced);
+        if (sciButton != null && sciPad != null) {
+            sciButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    final boolean show = sciPad.getVisibility() != View.VISIBLE;
+                    sciPad.setVisibility(show ? View.VISIBLE : View.GONE);
+                    mPadViewPager.setTag(show ? "compact_cells" : "square_cells");
+                    mPadViewPager.requestLayout();
+                }
+            });
+            // Long press opens the overflow menu (leading digits, fraction, licenses).
+            sciButton.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    openOptionsMenu();
+                    return true;
+                }
+            });
+        }
+
         mDragLayout = (DragLayout) findViewById(R.id.drag_layout);
         mDragLayout.removeDragCallback(this);
         mDragLayout.addDragCallback(this);
@@ -491,14 +523,9 @@ public class Calculator extends Activity
             }
             mCurrentState = state;
 
-            if (mCurrentState == CalculatorState.RESULT) {
-                // No longer do this for ERROR; allow mistakes to be corrected.
-                mDeleteButton.setVisibility(View.GONE);
-                mClearButton.setVisibility(View.VISIBLE);
-            } else {
-                mDeleteButton.setVisibility(View.VISIBLE);
-                mClearButton.setVisibility(View.GONE);
-            }
+            // Both the backspace and the AC key are always visible.
+            mDeleteButton.setVisibility(View.VISIBLE);
+            mClearButton.setVisibility(View.VISIBLE);
 
             if (mIsOneLine) {
                 if (mCurrentState == CalculatorState.RESULT
@@ -837,6 +864,19 @@ public class Calculator extends Activity
             case R.id.clr:
                 onClear();
                 return;  // Toolbar visibility adjusted at end of animation.
+            case R.id.toggle_sign:
+                cancelIfEvaluating(false);
+                if (mCurrentState == CalculatorState.RESULT) {
+                    mEvaluator.collapse(mEvaluator.getMaxIndex());
+                    setState(CalculatorState.INPUT);
+                } else if (mCurrentState == CalculatorState.ERROR) {
+                    setState(CalculatorState.INPUT);
+                }
+                if (!mEvaluator.negateTrailingOperand()) {
+                    addExplicitKeyToExpr(R.id.op_sub);
+                }
+                redisplayAfterFormulaChange();
+                break;
             case R.id.toggle_inv:
                 final boolean selected = !mInverseToggle.isSelected();
                 mInverseToggle.setSelected(selected);
@@ -1158,6 +1198,21 @@ public class Calculator extends Activity
         final float resultTranslationY = (mFormulaContainer.getBottom() - mResultText.getBottom())
                 - (mFormulaText.getPaddingBottom() - mResultText.getPaddingBottom());
         float formulaTranslationY = -mFormulaContainer.getBottom();
+        // Instead of sliding the expression away, shrink it into a small gray line that sits
+        // right above the result (like the iOS calculator).
+        final float formulaTargetSize = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP, 26, getResources().getDisplayMetrics());
+        final float formulaScale =
+                Math.min(1.0f, formulaTargetSize / mFormulaText.getTextSize());
+        if (!mIsOneLine) {
+            formulaTranslationY = -(textSize * 1.2f);
+            mFormulaContainer.setPivotX(
+                    mFormulaContainer.getWidth() - mFormulaText.getPaddingEnd());
+            mFormulaContainer.setPivotY(
+                    mFormulaContainer.getHeight() - mFormulaText.getPaddingBottom());
+        }
+        final int formulaResultColor =
+                ContextCompat.getColor(this, R.color.display_formula_result_color);
         if (mIsOneLine) {
             // Position the result text.
             mResultText.setY(mResultText.getBottom());
@@ -1186,9 +1241,20 @@ public class Calculator extends Activity
                             PropertyValuesHolder.ofFloat(View.SCALE_X, resultScale),
                             PropertyValuesHolder.ofFloat(View.SCALE_Y, resultScale),
                             PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, resultTranslationY)),
-                    ObjectAnimator.ofArgb(mResultText, TEXT_COLOR, formulaTextColor),
-                    ObjectAnimator.ofFloat(mFormulaContainer, View.TRANSLATION_Y,
-                            formulaTranslationY));
+                    ObjectAnimator.ofArgb(mResultText, TEXT_COLOR, formulaTextColor));
+            if (!mIsOneLine) {
+                animatorSet.playTogether(
+                        ObjectAnimator.ofPropertyValuesHolder(mFormulaContainer,
+                                PropertyValuesHolder.ofFloat(View.SCALE_X, formulaScale),
+                                PropertyValuesHolder.ofFloat(View.SCALE_Y, formulaScale),
+                                PropertyValuesHolder.ofFloat(View.TRANSLATION_Y,
+                                        formulaTranslationY)),
+                        ObjectAnimator.ofArgb(mFormulaText, TEXT_COLOR, formulaResultColor));
+            } else {
+                animatorSet.playTogether(
+                        ObjectAnimator.ofFloat(mFormulaContainer, View.TRANSLATION_Y,
+                                formulaTranslationY));
+            }
             animatorSet.setDuration(getResources().getInteger(
                     android.R.integer.config_longAnimTime));
             animatorSet.addListener(new AnimatorListenerAdapter() {
@@ -1206,6 +1272,11 @@ public class Calculator extends Activity
             mResultText.setScaleY(resultScale);
             mResultText.setTranslationY(resultTranslationY);
             mResultText.setTextColor(formulaTextColor);
+            if (!mIsOneLine) {
+                mFormulaContainer.setScaleX(formulaScale);
+                mFormulaContainer.setScaleY(formulaScale);
+                mFormulaText.setTextColor(formulaResultColor);
+            }
             mFormulaContainer.setTranslationY(formulaTranslationY);
             setState(CalculatorState.RESULT);
         }
@@ -1222,6 +1293,8 @@ public class Calculator extends Activity
         mResultText.setTranslationX(0.0f);
         mResultText.setTranslationY(0.0f);
         mFormulaContainer.setTranslationY(0.0f);
+        mFormulaContainer.setScaleX(1.0f);
+        mFormulaContainer.setScaleY(1.0f);
 
         mFormulaText.requestFocus();
     }
