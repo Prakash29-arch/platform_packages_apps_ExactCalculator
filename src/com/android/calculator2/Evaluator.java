@@ -1377,6 +1377,18 @@ public class Evaluator implements CalculatorExpr.ExprResolver {
     }
 
     /**
+     * Toggle the sign of the last operand of the main expression.
+     * @return false if there was nothing to negate
+     */
+    public boolean negateTrailingOperand() {
+        if (mMainExpr.mExpr.negateTrailingOperand()) {
+            mChangedValue = true;
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Delete last taken from main expression.
      */
     public void delete() {
