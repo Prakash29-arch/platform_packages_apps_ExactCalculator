@@ -21,10 +21,16 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/display_background_color"
-    android:elevation="4dip"
+    android:elevation="0dip"
     android:orientation="vertical">
 
     <include layout="@layout/toolbar" />
+
+    <!-- Pushes the formula and the result to the bottom of the display. -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1" />
 
     <com.android.calculator2.CalculatorScrollView
         android:id="@+id/formula_container"
