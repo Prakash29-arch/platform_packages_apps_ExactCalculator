@@ -449,6 +449,41 @@ class CalculatorExpr {
     }
 
     /**
+     * Toggle the sign of the trailing operand (a number or a previous result).
+     * Returns false if the expression does not end with such an operand.
+     */
+    boolean negateTrailingOperand() {
+        final int s = mExpr.size();
+        if (s == 0) {
+            return false;
+        }
+        final Token last = mExpr.get(s - 1);
+        if (!(last instanceof Constant) && !(last instanceof PreEval)) {
+            return false;
+        }
+        final int start = s - 1;
+        if (start >= 1) {
+            final Token before = mExpr.get(start - 1);
+            if (before instanceof Operator && ((Operator) before).id == R.id.op_sub) {
+                boolean unary = (start == 1);
+                if (!unary) {
+                    final Token b2 = mExpr.get(start - 2);
+                    if (b2 instanceof Operator) {
+                        final int id2 = ((Operator) b2).id;
+                        unary = !KeyMaps.isSuffix(id2) && id2 != R.id.rparen;
+                    }
+                }
+                if (unary) {
+                    mExpr.remove(start - 1);
+                    return true;
+                }
+            }
+        }
+        mExpr.add(start, new Operator(R.id.op_sub));
+        return true;
+    }
+
+    /**
      * Does this expression end with a binary operator?
      */
     boolean hasTrailingBinary() {
