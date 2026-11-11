@@ -1,4 +1,4 @@
-# Exact Calculator
+#Calculator
 
 A fork of the GrapheneOS Exact Calculator app, built as an Android application using the Android Soong build system.
 

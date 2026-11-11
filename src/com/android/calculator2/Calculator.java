@@ -1134,13 +1134,9 @@ public class Calculator extends Activity
         }
         cancelIfEvaluating(true);
         announceClearedForAccessibility();
-        reveal(mCurrentButton, R.color.calculator_primary_color, new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                onClearAnimationEnd();
-                showOrHideToolbar();
-            }
-        });
+        // No reveal animation on clear: clear immediately.
+        onClearAnimationEnd();
+        showOrHideToolbar();
     }
 
     // Evaluation encountered en error.  Display the error.
